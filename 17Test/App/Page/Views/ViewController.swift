@@ -13,15 +13,29 @@ class ViewController: UIViewController, Viewer, PullToRefreshable {
     @IBOutlet weak var inputText: UITextField!
     @IBOutlet weak var collectionView: UICollectionView!
     @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
+    var refreshControl: UIRefreshControl!
 
     var scrollView: UIScrollView? { collectionView }
 
-    private var currentTypingTime: DispatchTime?
+    private var windowInterfaceOrientation: UIInterfaceOrientation? {
+        if #available(iOS 13.0, *) {
+            return UIApplication.shared.windows.first?.windowScene?.interfaceOrientation
+        } else {
+            return UIApplication.shared.statusBarOrientation
+        }
+    }
 
-    var refreshControl: UIRefreshControl!
+    private var currentTypingTime: DispatchTime?
     
     private var cellWidth: CGFloat {
-        let count: CGFloat = 4
+        let count: CGFloat = {
+            if let windowInterfaceOrientation = windowInterfaceOrientation, windowInterfaceOrientation.isPortrait {
+                return 4
+            } else {
+                return 8
+            }
+        }()
+        
         let horizontalMargin: CGFloat = 8
         let space: CGFloat = 1 * (count - 1)
         let width: CGFloat = collectionView.bounds.size.width - horizontalMargin - space
@@ -56,6 +70,26 @@ class ViewController: UIViewController, Viewer, PullToRefreshable {
         handlePrepare(for: segue, sender: sender)
     }
 
+    override func viewDidLayoutSubviews() {
+
+        collectionView.contentInset.top = inputText.frame.maxY
+        collectionView.contentInset.bottom = self.view.safeAreaInsets.bottom
+
+        super.viewDidLayoutSubviews()
+    }
+
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+
+        guard let previousTraitCollection = previousTraitCollection, traitCollection.verticalSizeClass != previousTraitCollection.verticalSizeClass ||
+            traitCollection.horizontalSizeClass != previousTraitCollection.horizontalSizeClass else {
+                return
+        }
+
+        collectionView.collectionViewLayout.invalidateLayout()
+        collectionView.reloadData()
+    }
+
     /// 下拉更新
     ///
     /// - Parameter sender: sender description
@@ -69,7 +103,7 @@ class ViewController: UIViewController, Viewer, PullToRefreshable {
     func showProgress(isUpdate: Bool) {
         activityIndicator.isHidden = !isUpdate
     }
-
+    
     @IBAction func textFieldChanged(_ sender: UITextField) {
 
         weak var weakSelf = self
